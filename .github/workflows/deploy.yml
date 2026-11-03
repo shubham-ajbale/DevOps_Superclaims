@@ -26,12 +26,13 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      # 2. Diagnose GitHub OIDC token claims
+      # 2. Diagnose GitHub OIDC claims
       - name: Diagnose GitHub OIDC token claims
         uses: actions/github-script@v7
         with:
           script: |
             const token = await core.getIDToken('sts.amazonaws.com');
+
             const payload = JSON.parse(
               Buffer.from(token.split('.')[1], 'base64url').toString()
             );
@@ -51,16 +52,24 @@ jobs:
           role-session-name: GitHubActionsSession
           mask-aws-account-id: false
 
-      # 4. Verify AWS identity
+      # 4. Verify AWS identity and region
       - name: Verify AWS identity
+        shell: bash
         run: |
+          set -euo pipefail
+
           echo "Checking AWS identity..."
           aws sts get-caller-identity
 
           echo "Checking AWS region..."
-          aws configure get region
+          echo "AWS_REGION=${AWS_REGION}"
 
-      # 5. NEW: Verify ECR access before building
+          test -n "${AWS_REGION}"
+          test "${AWS_REGION}" = "ap-south-1"
+
+          echo "AWS identity and region verification successful."
+
+      # 5. Verify ECR access
       - name: Verify ECR access
         shell: bash
         run: |
@@ -73,21 +82,21 @@ jobs:
 
           echo "ECR authorization successful."
 
-          echo "Checking backend repository access..."
+          echo "Checking backend ECR repository..."
 
           aws ecr describe-images \
             --repository-name "$ECR_BACKEND_REPOSITORY" \
             --region "$AWS_REGION" \
             --max-items 1
 
-          echo "Checking frontend repository access..."
+          echo "Checking frontend ECR repository..."
 
           aws ecr describe-images \
             --repository-name "$ECR_FRONTEND_REPOSITORY" \
             --region "$AWS_REGION" \
             --max-items 1
 
-          echo "ECR read-access checks completed."
+          echo "ECR access verification completed."
 
       # 6. Login to Amazon ECR
       - name: Login to Amazon ECR
@@ -114,7 +123,7 @@ jobs:
             ${{ steps.ecr.outputs.registry }}/${{ env.ECR_FRONTEND_REPOSITORY }}:${{ github.sha }}
             ${{ steps.ecr.outputs.registry }}/${{ env.ECR_FRONTEND_REPOSITORY }}:latest
 
-      # 9. Deploy application to EC2 over SSH
+      # 9. Deploy application to EC2
       - name: Deploy to existing EC2 over SSH
         uses: appleboy/ssh-action@v1.2.0
         env:
