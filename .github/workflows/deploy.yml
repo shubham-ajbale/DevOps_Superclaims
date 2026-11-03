@@ -27,7 +27,7 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      # 2. Diagnose GitHub OIDC claims
+      # 2. Diagnose GitHub OIDC token claims
       - name: Diagnose GitHub OIDC token claims
         uses: actions/github-script@v7
         with:
@@ -38,21 +38,25 @@ jobs:
               Buffer.from(token.split('.')[1], 'base64url').toString()
             );
 
-            core.info('GitHub OIDC claims:');
+            core.info('========== OIDC DIAGNOSTICS ==========');
             core.info('ISS: ' + payload.iss);
             core.info('AUD: ' + JSON.stringify(payload.aud));
             core.info('SUB: ' + payload.sub);
+            core.info('======================================');
 
-      # 3. Authenticate with AWS using OIDC
+      # 3. Configure AWS credentials using OIDC
       - name: Configure AWS credentials with OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActionsSession
+          mask-aws-account-id: false
 
       # 4. Verify AWS identity
       - name: Verify AWS identity
         run: |
+          echo "Checking AWS identity..."
           aws sts get-caller-identity
 
       # 5. Login to Amazon ECR
@@ -80,7 +84,7 @@ jobs:
             ${{ steps.ecr.outputs.registry }}/${{ env.ECR_FRONTEND_REPOSITORY }}:${{ github.sha }}
             ${{ steps.ecr.outputs.registry }}/${{ env.ECR_FRONTEND_REPOSITORY }}:latest
 
-      # 8. Deploy images to EC2
+      # 8. Deploy application to EC2
       - name: Deploy to existing EC2 over SSH
         uses: appleboy/ssh-action@v1.2.0
         env:
@@ -113,25 +117,27 @@ jobs:
             aws ecr get-login-password --region "${AWS_REGION}" \
               | docker login --username AWS --password-stdin "${REGISTRY}"
 
-            echo "Pulling application images..."
+            echo "Pulling backend and frontend images..."
 
             BACKEND_IMAGE="${BACKEND_IMAGE}" \
             FRONTEND_IMAGE="${FRONTEND_IMAGE}" \
               docker compose -f docker-compose.prod.yml pull
 
-            echo "Starting application..."
+            echo "Starting application containers..."
 
             BACKEND_IMAGE="${BACKEND_IMAGE}" \
             FRONTEND_IMAGE="${FRONTEND_IMAGE}" \
               docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
-            echo "Checking application health..."
-
+            echo "Waiting for application startup..."
             sleep 10
+
+            echo "Checking application health..."
 
             curl --fail --silent --show-error \
               http://localhost/api/health/
 
-            echo "Deployment completed successfully."
+            echo ""
+            echo "Deployment completed successfully!"
 
             docker image prune -f
