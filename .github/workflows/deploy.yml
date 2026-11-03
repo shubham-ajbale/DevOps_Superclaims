@@ -1,3 +1,14 @@
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
       - name: Diagnose GitHub OIDC token claims
         uses: actions/github-script@v7
         with:
@@ -7,9 +18,14 @@
               Buffer.from(token.split('.')[1], 'base64url').toString()
             );
 
-            core.info('OIDC claims (safe fields only):');
             core.info(JSON.stringify({
               iss: payload.iss,
               aud: payload.aud,
               sub: payload.sub
             }, null, 2));
+
+      - name: Configure AWS credentials with OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
