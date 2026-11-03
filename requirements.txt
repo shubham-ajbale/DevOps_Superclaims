@@ -2,3 +2,4 @@ fastapi
 uvicorn
 celery
 redis
+packaging>=23.0
