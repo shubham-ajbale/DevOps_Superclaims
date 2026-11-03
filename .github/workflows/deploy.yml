@@ -1,4 +1,3 @@
-
 name: DevOps Assessment CI/CD
 
 on:
@@ -33,7 +32,6 @@ jobs:
         with:
           script: |
             const token = await core.getIDToken('sts.amazonaws.com');
-
             const payload = JSON.parse(
               Buffer.from(token.split('.')[1], 'base64url').toString()
             );
@@ -59,12 +57,44 @@ jobs:
           echo "Checking AWS identity..."
           aws sts get-caller-identity
 
-      # 5. Login to Amazon ECR
+          echo "Checking AWS region..."
+          aws configure get region
+
+      # 5. NEW: Verify ECR access before building
+      - name: Verify ECR access
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Checking ECR authorization..."
+
+          aws ecr get-login-password \
+            --region "$AWS_REGION" > /dev/null
+
+          echo "ECR authorization successful."
+
+          echo "Checking backend repository access..."
+
+          aws ecr describe-images \
+            --repository-name "$ECR_BACKEND_REPOSITORY" \
+            --region "$AWS_REGION" \
+            --max-items 1
+
+          echo "Checking frontend repository access..."
+
+          aws ecr describe-images \
+            --repository-name "$ECR_FRONTEND_REPOSITORY" \
+            --region "$AWS_REGION" \
+            --max-items 1
+
+          echo "ECR read-access checks completed."
+
+      # 6. Login to Amazon ECR
       - name: Login to Amazon ECR
         id: ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      # 6. Build and push backend image
+      # 7. Build and push backend image
       - name: Build and push backend image
         uses: docker/build-push-action@v6
         with:
@@ -74,7 +104,7 @@ jobs:
             ${{ steps.ecr.outputs.registry }}/${{ env.ECR_BACKEND_REPOSITORY }}:${{ github.sha }}
             ${{ steps.ecr.outputs.registry }}/${{ env.ECR_BACKEND_REPOSITORY }}:latest
 
-      # 7. Build and push frontend image
+      # 8. Build and push frontend image
       - name: Build and push frontend image
         uses: docker/build-push-action@v6
         with:
@@ -84,7 +114,7 @@ jobs:
             ${{ steps.ecr.outputs.registry }}/${{ env.ECR_FRONTEND_REPOSITORY }}:${{ github.sha }}
             ${{ steps.ecr.outputs.registry }}/${{ env.ECR_FRONTEND_REPOSITORY }}:latest
 
-      # 8. Deploy application to EC2
+      # 9. Deploy application to EC2 over SSH
       - name: Deploy to existing EC2 over SSH
         uses: appleboy/ssh-action@v1.2.0
         env:
