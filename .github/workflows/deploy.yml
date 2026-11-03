@@ -1,3 +1,4 @@
+
 name: DevOps Assessment CI/CD
 
 on:
@@ -123,7 +124,7 @@ jobs:
             ${{ steps.ecr.outputs.registry }}/${{ env.ECR_FRONTEND_REPOSITORY }}:${{ github.sha }}
             ${{ steps.ecr.outputs.registry }}/${{ env.ECR_FRONTEND_REPOSITORY }}:latest
 
-      # 9. Deploy application to EC2
+      # 9. Deploy application to EC2 with SSH diagnostics
       - name: Deploy to existing EC2 over SSH
         uses: appleboy/ssh-action@v1.2.0
         env:
@@ -139,7 +140,21 @@ jobs:
           script: |
             set -eu
 
+            echo "========== SSH USER DIAGNOSTICS =========="
+            whoami
+            id
+            echo "HOME=$HOME"
+            pwd
+            echo "Checking root directory..."
+            ls -ld /root || true
+            echo "Checking application directory..."
+            ls -ld /root/devops-assignment || true
+            echo "==========================================="
+
+            echo "Changing to application directory..."
             cd /root/devops-assignment
+
+            echo "Checking AWS CLI..."
 
             if ! command -v aws >/dev/null 2>&1; then
               apt-get update
