@@ -27,8 +27,13 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+<<<<<<< HEAD
       # 2. Diagnose GitHub OIDC claims
       - name: Diagnose GitHub OIDC claims
+=======
+      # 2. Diagnose GitHub OIDC token claims
+      - name: Diagnose GitHub OIDC token claims
+>>>>>>> 8d7c4ea (Fix Docker Compose image variables in deployment)
         uses: actions/github-script@v7
         with:
           script: |
@@ -45,7 +50,11 @@ jobs:
             core.info('======================================');
 
       # 3. Configure AWS credentials using OIDC
+<<<<<<< HEAD
       - name: Configure AWS credentials
+=======
+      - name: Configure AWS credentials with OIDC
+>>>>>>> 8d7c4ea (Fix Docker Compose image variables in deployment)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
@@ -55,6 +64,7 @@ jobs:
 
       # 4. Verify AWS identity
       - name: Verify AWS identity
+<<<<<<< HEAD
         shell: bash
         run: |
           set -euo pipefail
@@ -93,11 +103,22 @@ jobs:
           echo "ECR verification successful."
 
       # 6. Login to Amazon ECR
+=======
+        run: |
+          echo "Checking AWS identity..."
+          aws sts get-caller-identity
+
+      # 5. Login to Amazon ECR
+>>>>>>> 8d7c4ea (Fix Docker Compose image variables in deployment)
       - name: Login to Amazon ECR
         id: ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+<<<<<<< HEAD
       # 7. Build and push backend image
+=======
+      # 6. Build and push backend image
+>>>>>>> 8d7c4ea (Fix Docker Compose image variables in deployment)
       - name: Build and push backend image
         uses: docker/build-push-action@v6
         with:
@@ -107,7 +128,11 @@ jobs:
             ${{ steps.ecr.outputs.registry }}/${{ env.ECR_BACKEND_REPOSITORY }}:${{ github.sha }}
             ${{ steps.ecr.outputs.registry }}/${{ env.ECR_BACKEND_REPOSITORY }}:latest
 
+<<<<<<< HEAD
       # 8. Build and push frontend image
+=======
+      # 7. Build and push frontend image
+>>>>>>> 8d7c4ea (Fix Docker Compose image variables in deployment)
       - name: Build and push frontend image
         uses: docker/build-push-action@v6
         with:
@@ -117,8 +142,13 @@ jobs:
             ${{ steps.ecr.outputs.registry }}/${{ env.ECR_FRONTEND_REPOSITORY }}:${{ github.sha }}
             ${{ steps.ecr.outputs.registry }}/${{ env.ECR_FRONTEND_REPOSITORY }}:latest
 
+<<<<<<< HEAD
       # 9. Deploy to EC2 Ubuntu
       - name: Deploy to EC2
+=======
+      # 8. Deploy application to EC2
+      - name: Deploy to existing EC2 over SSH
+>>>>>>> 8d7c4ea (Fix Docker Compose image variables in deployment)
         uses: appleboy/ssh-action@v1.2.0
         env:
           AWS_REGION: ${{ env.AWS_REGION }}
@@ -133,6 +163,7 @@ jobs:
           script: |
             set -eu
 
+<<<<<<< HEAD
             echo "========== EC2 DEPLOYMENT =========="
 
             echo "Connected user:"
@@ -144,6 +175,9 @@ jobs:
             pwd
 
             echo "Checking AWS CLI..."
+=======
+            cd /root/devops-assignment
+>>>>>>> 8d7c4ea (Fix Docker Compose image variables in deployment)
 
             if ! command -v aws >/dev/null 2>&1; then
               sudo apt-get update
@@ -157,9 +191,10 @@ jobs:
 
             REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 
-            BACKEND_IMAGE="${REGISTRY}/devops-assignment-backend:${IMAGE_TAG}"
-            FRONTEND_IMAGE="${REGISTRY}/devops-assignment-frontend:${IMAGE_TAG}"
+            export BACKEND_IMAGE="${REGISTRY}/devops-assignment-backend:${IMAGE_TAG}"
+            export FRONTEND_IMAGE="${REGISTRY}/devops-assignment-frontend:${IMAGE_TAG}"
 
+<<<<<<< HEAD
             echo "Checking EC2 IAM role..."
 
             aws sts get-caller-identity
@@ -173,11 +208,20 @@ jobs:
                   --password-stdin "${REGISTRY}"
 
             echo "Pulling application images..."
+=======
+            echo "Logging in to Amazon ECR..."
+
+            aws ecr get-login-password --region "${AWS_REGION}" \
+              | docker login --username AWS --password-stdin "${REGISTRY}"
+
+            echo "Pulling backend and frontend images..."
+>>>>>>> 8d7c4ea (Fix Docker Compose image variables in deployment)
 
             BACKEND_IMAGE="${BACKEND_IMAGE}" \
             FRONTEND_IMAGE="${FRONTEND_IMAGE}" \
               docker compose -f docker-compose.prod.yml pull
 
+<<<<<<< HEAD
             echo "Starting application..."
 
             BACKEND_IMAGE="${BACKEND_IMAGE}" \
@@ -205,3 +249,23 @@ jobs:
             docker image prune -f
 
             echo "========== DEPLOYMENT COMPLETE =========="
+=======
+            echo "Starting application containers..."
+
+            BACKEND_IMAGE="${BACKEND_IMAGE}" \
+            FRONTEND_IMAGE="${FRONTEND_IMAGE}" \
+              docker compose -f docker-compose.prod.yml up -d --remove-orphans
+
+            echo "Waiting for application startup..."
+            sleep 10
+
+            echo "Checking application health..."
+
+            curl --fail --silent --show-error \
+              http://localhost/api/health/
+
+            echo ""
+            echo "Deployment completed successfully!"
+
+            docker image prune -f
+>>>>>>> 8d7c4ea (Fix Docker Compose image variables in deployment)
