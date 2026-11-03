@@ -1,0 +1,57 @@
+services:
+
+  redis:
+    image: redis:7-alpine
+    container_name: assessment-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - app-network
+
+  backend:
+    build: .
+    container_name: assessment-backend
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    restart: unless-stopped
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+    networks:
+      - app-network
+
+  worker:
+    build: .
+    container_name: assessment-worker
+    command: celery -A worker worker --loglevel=info
+    restart: unless-stopped
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - redis
+    networks:
+      - app-network
+
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: assessment-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+
+volumes:
+  redis_data:
+
+networks:
+  app-network:
+    driver: bridge

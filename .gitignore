@@ -1,1 +1,6 @@
-venv
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.examplevenv

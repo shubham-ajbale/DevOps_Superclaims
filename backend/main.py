@@ -33,7 +33,7 @@ async def get_task_status(task_id: str):
     else:  # If the task is still in progress
         return {"task_id": task_id, "status": "in progress"}
 
-@app.post("/health/")
+@app.get("/health/")
 async def health():
     """Endpoint that checks the health of the application."""
     return {"message": "OK"}
